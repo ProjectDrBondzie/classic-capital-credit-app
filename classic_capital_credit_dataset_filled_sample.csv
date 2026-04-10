@@ -1,0 +1,11 @@
+borrower_name,member_id,application_date,loan_id,age,gender,marital_status,household_size,education_level,employment_type,years_employed,business_owner,monthly_income,monthly_expenses,monthly_savings,other_debt_amount,existing_loans,collateral_value,guarantor,member_years,loan_amount,loan_term_months,loan_purpose,interest_rate,repayment_frequency,default_flag,days_past_due,loan_status,amount_repaid
+,,,,,,Married,4,Secondary,Formal salaried,8,No,4200,2600,700,900,1,12000,Yes,5,6000,12,Business,0.18,Monthly,0,0,Performing,6000
+,,,,,,Married,6,Primary,Self-employed,10,Yes,3800,3000,350,1800,2,9000,No,6,8500,18,Trading,0.2,Monthly,1,75,Defaulted,3200
+,,,,,,Single,2,Tertiary,Formal salaried,4,No,5000,2400,1100,500,1,15000,Yes,3,5500,12,Education,0.17,Monthly,0,5,Closed,5500
+,,,,,,Married,5,Secondary,Informal worker,7,No,2900,2300,180,1400,2,6000,Yes,4,7000,12,Consumption,0.21,Monthly,1,48,Defaulted,2800
+,,,,,,Single,3,Secondary,Self-employed,3,Yes,2600,1800,300,400,1,5000,Yes,2,3000,10,Business,0.19,Monthly,0,0,Performing,1800
+,,,,,,Married,4,Tertiary,Formal salaried,9,No,4600,2700,850,600,1,14000,Yes,7,5000,12,Housing,0.16,Monthly,0,0,Closed,5000
+,,,,,,Single,2,Secondary,Informal worker,5,No,2400,1900,160,1200,2,4500,No,3,4200,12,Trading,0.22,Monthly,1,35,Defaulted,1600
+,,,,,,Married,3,Tertiary,Formal salaried,6,No,4100,2500,650,700,1,11000,Yes,4,4800,12,Education,0.18,Monthly,0,0,Performing,2400
+,,,,,,Single,2,Secondary,Self-employed,2,Yes,2100,1700,120,1000,2,3000,No,1,3500,9,Business,0.23,Monthly,1,22,Defaulted,900
+,,,,,,Married,5,Primary,Informal worker,8,Yes,3200,2400,280,800,1,7000,Yes,5,4500,12,Agriculture,0.2,Monthly,0,7,Performing,2000
