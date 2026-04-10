@@ -1,13 +1,17 @@
 import pandas as pd
 import streamlit as st
-import joblib
 from pathlib import Path
 from datetime import datetime
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.linear_model import LogisticRegression
 
 st.set_page_config(page_title="Classic Capital Credit App v4", page_icon="💳", layout="wide")
 
 DATA_FILE = Path("borrower_assessments.csv")
-MODEL_FILE = Path("credit_model.pkl")
+TRAIN_DATA_FILE = Path("classic_capital_credit_dataset_filled_sample.csv")
 LOGO_FILE = Path("logo.png")
 
 PRIMARY_BLUE = "#1518C7"
@@ -92,7 +96,96 @@ st.markdown(
 
 @st.cache_resource
 def load_model():
-    return joblib.load(MODEL_FILE)
+    df = pd.read_csv(TRAIN_DATA_FILE)
+
+    target = "default_flag"
+
+    drop_cols = [
+        "borrower_name",
+        "member_id",
+        "application_date",
+        "loan_id",
+        "loan_status",
+        "amount_repaid",
+        "days_past_due",
+    ]
+
+    df = df.drop(columns=[col for col in drop_cols if col in df.columns], errors="ignore")
+
+    numeric_features = [
+        "age",
+        "household_size",
+        "years_employed",
+        "monthly_income",
+        "monthly_expenses",
+        "monthly_savings",
+        "other_debt_amount",
+        "existing_loans",
+        "collateral_value",
+        "member_years",
+        "loan_amount",
+        "loan_term_months",
+        "interest_rate",
+    ]
+
+    categorical_features = [
+        "gender",
+        "marital_status",
+        "education_level",
+        "employment_type",
+        "business_owner",
+        "guarantor",
+        "loan_purpose",
+        "repayment_frequency",
+    ]
+
+    numeric_features = [col for col in numeric_features if col in df.columns]
+    categorical_features = [col for col in categorical_features if col in df.columns]
+
+    for col in numeric_features:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    for col in categorical_features:
+        df[col] = df[col].fillna("Unknown").astype(object)
+
+    numeric_features = [col for col in numeric_features if df[col].notna().sum() > 0]
+    categorical_features = [col for col in categorical_features if df[col].notna().sum() > 0]
+
+    df[target] = pd.to_numeric(df[target], errors="coerce")
+    df = df[df[target].notna()].copy()
+    df[target] = df[target].astype(int)
+
+    feature_cols = numeric_features + categorical_features
+    X = df[feature_cols].copy()
+    y = df[target].copy()
+
+    numeric_transformer = Pipeline(
+        steps=[("imputer", SimpleImputer(strategy="median"))]
+    )
+
+    categorical_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("onehot", OneHotEncoder(handle_unknown="ignore")),
+        ]
+    )
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ("num", numeric_transformer, numeric_features),
+            ("cat", categorical_transformer, categorical_features),
+        ]
+    )
+
+    model = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("classifier", LogisticRegression(max_iter=1000)),
+        ]
+    )
+
+    model.fit(X, y)
+    return model
 
 
 def classify_risk(pd_prob: float):
@@ -123,7 +216,6 @@ def build_explanations(row: pd.DataFrame, pd_prob: float):
     monthly_savings = float(row.loc[0, "monthly_savings"])
     loan_amount = float(row.loc[0, "loan_amount"])
     loan_term_months = float(row.loc[0, "loan_term_months"])
-    prior_default = row.loc[0, "guarantor"]
     employment_type = row.loc[0, "employment_type"]
     other_debt_amount = float(row.loc[0, "other_debt_amount"])
     existing_loans = float(row.loc[0, "existing_loans"])
@@ -191,8 +283,8 @@ def prepare_download(df: pd.DataFrame):
     return df.to_csv(index=False).encode("utf-8")
 
 
-if not MODEL_FILE.exists():
-    st.error("credit_model.pkl was not found in this folder. Put the trained model in the same folder as app.py.")
+if not TRAIN_DATA_FILE.exists():
+    st.error("classic_capital_credit_dataset_filled_sample.csv was not found in this folder.")
     st.stop()
 
 model = load_model()
@@ -209,7 +301,7 @@ with header_col2:
     st.markdown('<div class="main-title">Classic Capital Co-operative Society</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">AI Credit Scoring and Borrower Assessment Dashboard</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="small-note">This version uses a trained machine learning model stored as credit_model.pkl.</div>',
+        '<div class="small-note">This version trains the prototype model directly inside the app for cloud compatibility.</div>',
         unsafe_allow_html=True,
     )
 
