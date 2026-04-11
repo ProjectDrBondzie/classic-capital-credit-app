@@ -8,7 +8,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.linear_model import LogisticRegression
 
-st.set_page_config(page_title="Classic Capital Credit App v4", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Classic Capital Credit App v5", page_icon="💳", layout="wide")
 
 DATA_FILE = Path("borrower_assessments.csv")
 TRAIN_DATA_FILE = Path("classic_capital_credit_dataset_filled_sample.csv")
@@ -261,20 +261,42 @@ def build_explanations(row: pd.DataFrame, pd_prob: float):
     return reasons
 
 
+def ensure_record_ids(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    if "record_id" not in df.columns:
+        df = df.copy()
+        df.insert(0, "record_id", range(1, len(df) + 1))
+    return df
+
+
 def save_assessment(record: dict):
     df_new = pd.DataFrame([record])
     if DATA_FILE.exists():
         df_old = pd.read_csv(DATA_FILE)
+        df_old = ensure_record_ids(df_old)
+        next_id = int(df_old["record_id"].max()) + 1 if not df_old.empty else 1
+        df_new.insert(0, "record_id", next_id)
         df_all = pd.concat([df_old, df_new], ignore_index=True)
     else:
+        df_new.insert(0, "record_id", 1)
         df_all = df_new
     df_all.to_csv(DATA_FILE, index=False)
 
 
 def load_saved_data():
     if DATA_FILE.exists():
-        return pd.read_csv(DATA_FILE)
+        df = pd.read_csv(DATA_FILE)
+        return ensure_record_ids(df)
     return pd.DataFrame()
+
+
+def save_full_table(df: pd.DataFrame):
+    if df.empty:
+        pd.DataFrame(columns=["record_id"]).to_csv(DATA_FILE, index=False)
+    else:
+        df = ensure_record_ids(df)
+        df.to_csv(DATA_FILE, index=False)
 
 
 def prepare_download(df: pd.DataFrame):
@@ -301,7 +323,7 @@ with header_col2:
     st.markdown('<div class="main-title">Classic Capital Co-operative Society</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">AI Credit Scoring and Borrower Assessment Dashboard</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="small-note">This version trains the prototype model directly inside the app for cloud compatibility.</div>',
+        '<div class="small-note">This version lets you edit or delete saved records directly inside the app.</div>',
         unsafe_allow_html=True,
     )
 
@@ -315,19 +337,19 @@ with overview1:
         unsafe_allow_html=True,
     )
 with overview2:
-    avg_pd = f"{saved_df['default_probability'].mean():.1%}" if not saved_df.empty else "0.0%"
+    avg_pd = f"{saved_df['default_probability'].mean():.1%}" if not saved_df.empty and "default_probability" in saved_df.columns else "0.0%"
     st.markdown(
         '<div class="metric-card"><div class="metric-label">Average default probability</div><div class="metric-value">{}</div></div>'.format(avg_pd),
         unsafe_allow_html=True,
     )
 with overview3:
-    low_share = f"{(saved_df['risk_category'].eq('Low Risk').mean()):.1%}" if not saved_df.empty else "0.0%"
+    low_share = f"{(saved_df['risk_category'].eq('Low Risk').mean()):.1%}" if not saved_df.empty and "risk_category" in saved_df.columns else "0.0%"
     st.markdown(
         '<div class="metric-card"><div class="metric-label">Low risk share</div><div class="metric-value">{}</div></div>'.format(low_share),
         unsafe_allow_html=True,
     )
 with overview4:
-    high_share = f"{(saved_df['risk_category'].isin(['High Risk', 'Very High Risk']).mean()):.1%}" if not saved_df.empty else "0.0%"
+    high_share = f"{(saved_df['risk_category'].isin(['High Risk', 'Very High Risk']).mean()):.1%}" if not saved_df.empty and "risk_category" in saved_df.columns else "0.0%"
     st.markdown(
         '<div class="metric-card"><div class="metric-label">High risk share</div><div class="metric-value">{}</div></div>'.format(high_share),
         unsafe_allow_html=True,
@@ -477,7 +499,61 @@ with right_col:
     st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("---")
-filter_col1, filter_col2, filter_col3 = st.columns([1, 1, 2])
+st.markdown("### Manage saved records")
+
+if saved_df.empty:
+    st.write("No saved records yet.")
+else:
+    manage_df = saved_df.copy()
+    manage_df.insert(1, "delete_row", False)
+
+    edited_df = st.data_editor(
+        manage_df,
+        use_container_width=True,
+        num_rows="dynamic",
+        hide_index=True,
+        column_config={
+            "record_id": st.column_config.NumberColumn("Record ID", disabled=True),
+            "delete_row": st.column_config.CheckboxColumn("Delete"),
+        },
+        disabled=["record_id"],
+        key="records_editor",
+    )
+
+    action_col1, action_col2, action_col3 = st.columns([1, 1, 2])
+
+    with action_col1:
+        if st.button("Save table edits"):
+            to_save = edited_df.copy()
+            if "delete_row" in to_save.columns:
+                to_save = to_save.drop(columns=["delete_row"])
+            save_full_table(to_save)
+            st.success("Saved edits to the records table.")
+            st.rerun()
+
+    with action_col2:
+        if st.button("Delete selected rows"):
+            to_save = edited_df.copy()
+            if "delete_row" in to_save.columns:
+                to_save = to_save[to_save["delete_row"] != True].drop(columns=["delete_row"])
+            save_full_table(to_save)
+            st.success("Selected rows deleted.")
+            st.rerun()
+
+    with action_col3:
+        st.download_button(
+            "Download current records",
+            data=prepare_download(saved_df),
+            file_name="borrower_assessments.csv",
+            mime="text/csv",
+            disabled=saved_df.empty,
+        )
+
+st.markdown("---")
+st.markdown("### Filtered records view")
+
+saved_df = load_saved_data()
+filter_col1, filter_col2 = st.columns([1, 1])
 
 with filter_col1:
     risk_filter = st.selectbox(
@@ -486,26 +562,17 @@ with filter_col1:
     )
 with filter_col2:
     search_name = st.text_input("Search borrower name", placeholder="Type a borrower name")
-with filter_col3:
-    st.download_button(
-        "Download saved assessments",
-        data=prepare_download(saved_df),
-        file_name="borrower_assessments.csv",
-        mime="text/csv",
-        disabled=saved_df.empty,
-    )
 
 filtered_df = saved_df.copy()
 if not filtered_df.empty:
-    if risk_filter != "All":
+    if risk_filter != "All" and "risk_category" in filtered_df.columns:
         filtered_df = filtered_df[filtered_df["risk_category"] == risk_filter]
-    if search_name.strip():
+    if search_name.strip() and "borrower_name" in filtered_df.columns:
         filtered_df = filtered_df[
             filtered_df["borrower_name"].fillna("").str.contains(search_name.strip(), case=False, na=False)
         ]
 
-st.markdown("### Saved records")
 if filtered_df.empty:
     st.write("No matching records found.")
 else:
-    st.dataframe(filtered_df.sort_values("timestamp", ascending=False), use_container_width=True)
+    st.dataframe(filtered_df.sort_values("timestamp", ascending=False), use_container_width=True, hide_index=True)
